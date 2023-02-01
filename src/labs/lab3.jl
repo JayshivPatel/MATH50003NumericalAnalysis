@@ -1,66 +1,133 @@
-**Problem 1.2 (B)** Implement central differences for $f(x) = 1 + x + x^2$ and $g(x) = 1 + x/3 + x^2$. 
-Plot the errors for `h = 2.0 .^ (0:-1:-60)` and `h = 10.0 .^ (0:-1:-16)`. 
-Derive the error exactly for the different cases to explain the observed behaviour.
+# # MATH50003 (2022–23)
+# # Lab 3: Divided differences and dual numbers
+#
+# This lab explores different discretisations for first and higher derivatives.
+# In particular we consider the following approximations:
+# *Forward differences*:
+# $$
+# f'(x) ≈ {f(x+h) - f(x) \over h}
+# $$
+# *Central differences*:
+# $$
+# f'(x) ≈ {f(x+h) - f(x-h) \over 2h}
+# $$
+# *Second order differences*:
+# $$
+# f''(x) ≈ {f(x+h) - 2f(x) + f(x-h) \over h^2}
+# $$
+# We also add to the implementation of `Dual` to enable
+# automatic differentiation with cos, sin, and division
 
-    **Problem 1.4 (B)** Use finite-differences, central differences, and second-order finite-differences to approximate to 5-digits the first and second 
-derivatives to the following functions
-at the point $x = 0.1$:
-$$
-\exp(\exp x \cos x + \sin x), \prod_{k=1}^{1000} \left({x \over k}-1\right), \hbox{ and } f^{\rm s}_{1000}(x)
-$$
-where $f^{\rm s}_n(x)$ corresponds to $n$-terms of the following continued fraction:
-$$
-1 + {x-1 \over 2 + {x-1 \over 2 + {x-1 \over 2 + \ddots}}},
-$$
-e.g.:
-$$f^{\rm s}_1(x) = 1 + {x-1 \over 2}$$
-$$f^{\rm s}_2(x) = 1 + {x-1 \over 2 + {x -1 \over 2}}$$
-$$f^{\rm s}_3(x) = 1 + {x-1 \over 2 + {x -1 \over 2 + {x-1 \over 2}}}$$
+using Plots, Test
+## helper function to avoid trying to take logs of 0 in plots
+## use in plots below
+nanabs(x) = iszero(x) ? NaN : abs(x)
 
 
-**SOLUTION**
-```julia
-# Forward Difference
-forwarddiff(x, h, f) = (f(x + h) - f(x))/h
+# --------
 
-# We already implemented central differences in a previous problem
 
-# Second derivative via finite difference
-finitediffsecond(x, h, f) = (f(x + h) - 2 * f(x) + f(x - h))/ (h^2)
-    
-# Define the functions
-f = x -> exp(exp(x)cos(x) + sin(x))
-g = x -> prod([x] ./ (1:1000) .- 1)
-function cont(n, x)
-    ret = 2*one(x)
-    for k = 1:n-1
-        ret = 2 + (x-1)/ret
-    end
-    1 + (x-1)/ret
+
+# **Problem 1** Implement central differences
+# for $f(x) = 1 + x + x^2$ and $g(x) = 1 + x/3 + x^2$, approximating the derivative at $x = 0$.
+# Plot the absolute errors for `h = 2.0 .^ (0:-1:-60)` and `h = 10.0 .^ (0:-1:-16)`.
+
+
+
+# -----
+# **Problem 2** Use forward differences, central differences, and second-order divided differences to approximate to 5-digits the first and second
+# derivatives to the following functions
+# at the point $x = 0.1$:
+# $$
+# \exp(\exp x \cos x + \sin x), ∏_{k=1}^{1000} \left({x \over k}-1\right), \hbox{ and } f^{\rm s}_{1000}(x)
+# $$
+# where $f^{\rm s}_n(x)$ corresponds to $n$-terms of the following continued fraction:
+# $$
+# 1 + {x-1 \over 2 + {x-1 \over 2 + {x-1 \over 2 + ⋱}}},
+# $$
+# e.g.:
+# $$f^{\rm s}_1(x) = 1 + {x-1 \over 2}$$
+# $$f^{\rm s}_2(x) = 1 + {x-1 \over 2 + {x -1 \over 2}}$$
+# $$f^{\rm s}_3(x) = 1 + {x-1 \over 2 + {x -1 \over 2 + {x-1 \over 2}}}$$
+
+
+
+
+# ----
+
+# **Problem 3.1** Add support for `cos`, `sin`, and `/` to the type `Dual`:
+
+## Dual(a,b) represents a + b*ϵ
+struct Dual{T}
+    a::T
+    b::T
 end
 
-# Choose our point
-x = 0.1;
-```
+## Dual(a) represents a + 0*ϵ
+Dual(a::Real) = Dual(a, zero(a)) # for real numbers we use a + 0ϵ
 
-```julia
-# We have to be a bit careful with the choice of h
-h = eps()
-# Values for exp(exp(x)cos(x) + sin(x))
-println("f'($x) with forward difference: ", forwarddiff(x, sqrt(h), f))
-println("f'($x) with central difference: ", centraldiff(x, cbrt(h), f))
-println("f''($x) via finite difference:  ", finitediffsecond(x, cbrt(h), f))
-```
-```julia
-# Values for prod([x] ./ (1:1000) .- 1)
-println("f'($x) with forward difference: ", forwarddiff(x, sqrt(h), g))
-println("f'($x) with central difference: ", centraldiff(x, cbrt(h), g))
-println("f''($x) via finite difference:  ", finitediffsecond(x, cbrt(h), g))
-```
-```julia
-# Values for the continued fraction
-println("f'($x) with forward difference: ", forwarddiff(x, sqrt(h), x->cont(1000,x)))
-println("f'($x) with central difference: ", centraldiff(x, sqrt(h), x->cont(1000,x)))
-println("f''($x) via finite difference:  ", finitediffsecond(x, cbrt(h), x->cont(1000,x)))
-```
+## Allow for a + b*ϵ syntax
+const ϵ = Dual(0, 1)
+
+import Base: +, *, -, /, ^, zero, exp, cos, sin, one
+
+## support polynomials like 1 + x, x - 1, 2x or x*2 by reducing to Dual
++(x::Real, y::Dual) = Dual(x) + y
++(x::Dual, y::Real) = x + Dual(y)
+-(x::Real, y::Dual) = Dual(x) - y
+-(x::Dual, y::Real) = x - Dual(y)
+*(x::Real, y::Dual) = Dual(x) * y
+*(x::Dual, y::Real) = x * Dual(y)
+
+## support x/2 (but not yet division of duals)
+/(x::Dual, k::Real) = Dual(x.a/k, x.b/k)
+
+## a simple recursive function to support x^2, x^3, etc.
+function ^(x::Dual, k::Integer)
+    if k < 0
+        error("Not implemented")
+    elseif k == 1
+        x
+    else
+        x^(k-1) * x
+    end
+end
+
+## support identity of type Dual
+one(x::Dual) = Dual(one(eltype(x.a)))
+
+## Algebraic operations for duals
+-(x::Dual) = Dual(-x.a, -x.b)
++(x::Dual, y::Dual) = Dual(x.a + y.a, x.b + y.b)
+-(x::Dual, y::Dual) = Dual(x.a - y.a, x.b - y.b)
+*(x::Dual, y::Dual) = Dual(x.a*y.a, x.a*y.b + x.b*y.a)
+
+exp(x::Dual) = Dual(exp(x.a), exp(x.a) * x.b)
+
+function cos(x::Dual)
+    ## TODO: implement cos for Duals
+
+end
+
+function sin(x::Dual)
+    ## TODO: implement sin for Duals
+
+end
+
+function /(x::Dual, y::Dual)
+    ## TODO: implement division for Duals
+
+end
+
+x = 0.1
+@test_broken cos(sin(x+ϵ)/(x+ϵ)).b ≈ -((cos(x)/x - sin(x)/x^2)sin(sin(x)/x))
+
+
+# **Problem 3.2** Use dual numbers to compute the derivatives to
+# $$
+# \exp(\exp x \cos x + \sin x), ∏_{k=1}^{1000} \left({x \over k}-1\right), \hbox{ and } f^{\rm s}_{1000}(x).
+# $$
+# Does your answer match (to 5 digits) Problem 2?
+
+
 
